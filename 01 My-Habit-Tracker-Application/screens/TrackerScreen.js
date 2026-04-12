@@ -1,5 +1,5 @@
 // screens/TrackerScreen.js
-import DateTimePicker from "@react-native-community/datetimepicker";
+// ✅ Platform-safe: DateTimePicker import is guarded so web bundle doesn't crash
 import { useState } from "react";
 import {
   Platform,
@@ -15,9 +15,14 @@ import CategoryPill from "../components/CategoryPill";
 import { useApp } from "../config/AppContext";
 import { getDailyMeta, getWeeklyMeta } from "../config/activityConfig";
 
-// ✅ FIX 1: ActivityRow defined OUTSIDE the parent component.
-// Defining it inside causes React to unmount+remount on every render
-// (keyboard flicker, lost state, performance issues on Android).
+// ✅ FIX: Lazy-import DateTimePicker only on native platforms.
+// On web the package doesn't exist and crashes the bundler.
+let DateTimePicker = null;
+if (Platform.OS !== "web") {
+  DateTimePicker = require("@react-native-community/datetimepicker").default;
+}
+
+// ✅ ActivityRow defined OUTSIDE parent — avoids remount on every render
 function ActivityRow({ name, done, meta, onToggle, t }) {
   return (
     <Pressable
@@ -25,7 +30,9 @@ function ActivityRow({ name, done, meta, onToggle, t }) {
       style={({ pressed }) => [
         styles.checkRow,
         {
-          backgroundColor: done ? "rgba(129,140,248,0.18)" : t.checkRowBg,
+          backgroundColor: done
+            ? "rgba(129,140,248,0.18)"
+            : t.checkRowBg,
           borderColor: done ? t.accent : t.checkRowBorder,
           borderLeftColor: done ? t.accent : "transparent",
           opacity: pressed ? 0.75 : 1,
@@ -33,6 +40,7 @@ function ActivityRow({ name, done, meta, onToggle, t }) {
         },
       ]}
     >
+      {/* Checkbox */}
       <View
         style={[
           styles.checkbox,
@@ -45,6 +53,7 @@ function ActivityRow({ name, done, meta, onToggle, t }) {
         {done && <Text style={styles.checkMark}>✓</Text>}
       </View>
 
+      {/* Name */}
       <Text
         style={[
           styles.activityName,
@@ -56,6 +65,7 @@ function ActivityRow({ name, done, meta, onToggle, t }) {
         {name}
       </Text>
 
+      {/* Right: category + time */}
       <View style={styles.checkRight}>
         <CategoryPill category={meta.category} />
         {meta.timeLabel ? (
@@ -101,7 +111,8 @@ export default function TrackerScreen() {
     setCurrentDate(d.toLocaleDateString("en-CA"));
   };
 
-  const goToday = () => setCurrentDate(new Date().toLocaleDateString("en-CA"));
+  const goToday = () =>
+    setCurrentDate(new Date().toLocaleDateString("en-CA"));
 
   const todaysWeekly = activities.weekly.filter((w) =>
     w.days.includes(dayName),
@@ -109,9 +120,11 @@ export default function TrackerScreen() {
   const dailyDoneCount = activities.daily.filter((n) => daily[n]).length;
   const weeklyDoneCount = todaysWeekly.filter((w) => weekly[w.name]).length;
   const dailyTotal = activities.daily.length;
-  const dailyPercent = dailyTotal > 0 ? (dailyDoneCount / dailyTotal) * 100 : 0;
+  const dailyPercent =
+    dailyTotal > 0 ? (dailyDoneCount / dailyTotal) * 100 : 0;
   const allDone = dailyTotal > 0 && dailyDoneCount === dailyTotal;
-  const isToday = currentDate === new Date().toLocaleDateString("en-CA");
+  const isToday =
+    currentDate === new Date().toLocaleDateString("en-CA");
 
   const formatDisplay = (dateStr) => {
     const d = new Date(dateStr + "T12:00:00");
@@ -124,15 +137,36 @@ export default function TrackerScreen() {
   };
 
   const onDateChange = (event, selectedDate) => {
-    // ✅ FIX 2: Always hide picker on Android after selection.
-    // On iOS keep open until user dismisses.
     if (Platform.OS === "android") setShowDatePicker(false);
-    if (event.type === "dismissed") {
-      setShowDatePicker(false);
-      return;
-    }
+    if (event.type === "dismissed") { setShowDatePicker(false); return; }
     if (selectedDate) setCurrentDate(selectedDate.toLocaleDateString("en-CA"));
     if (Platform.OS === "ios") setShowDatePicker(false);
+  };
+
+  // ✅ Web fallback: browser date input when DateTimePicker unavailable
+  const handleDateButtonPress = () => {
+    if (Platform.OS === "web") {
+      // On web, use a hidden HTML date input
+      const input = document.createElement("input");
+      input.type = "date";
+      input.value = currentDate;
+      input.style.position = "absolute";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.focus();
+      input.click();
+      input.addEventListener("change", (e) => {
+        if (e.target.value) setCurrentDate(e.target.value);
+        document.body.removeChild(input);
+      });
+      input.addEventListener("blur", () => {
+        setTimeout(() => {
+          if (document.body.contains(input)) document.body.removeChild(input);
+        }, 200);
+      });
+    } else {
+      setShowDatePicker(true);
+    }
   };
 
   const handleToggle = (type, name, currentDone) => {
@@ -148,15 +182,8 @@ export default function TrackerScreen() {
       keyboardShouldPersistTaps="handled"
     >
       {/* DATE CARD */}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: t.cardBg, borderColor: t.border },
-        ]}
-      >
-        <Text style={[styles.cardTitle, { color: t.accentLight }]}>
-          Tracker
-        </Text>
+      <View style={[styles.card, { backgroundColor: t.cardBg, borderColor: t.border }]}>
+        <Text style={[styles.cardTitle, { color: t.accentLight }]}>Tracker</Text>
 
         <View style={styles.dateRow}>
           <TouchableOpacity
@@ -169,8 +196,9 @@ export default function TrackerScreen() {
           </TouchableOpacity>
 
           <View style={styles.dateCenter}>
+            {/* Date display / picker trigger */}
             <TouchableOpacity
-              onPress={() => setShowDatePicker(true)}
+              onPress={handleDateButtonPress}
               style={[
                 styles.dateDisplay,
                 {
@@ -185,9 +213,7 @@ export default function TrackerScreen() {
                 {formatDisplay(currentDate)}
               </Text>
               {isToday && (
-                <View
-                  style={[styles.todayDot, { backgroundColor: t.accent }]}
-                />
+                <View style={[styles.todayDot, { backgroundColor: t.accent }]} />
               )}
             </TouchableOpacity>
 
@@ -200,29 +226,21 @@ export default function TrackerScreen() {
               <Text style={styles.todayBtnText}>⬤ Today</Text>
             </TouchableOpacity>
 
+            {/* Stats */}
             <View style={styles.statsRow}>
-              <View
-                style={[
-                  styles.statChip,
-                  { borderColor: t.border, backgroundColor: t.pillBg },
-                ]}
-              >
+              <View style={[styles.statChip, { borderColor: t.border, backgroundColor: t.pillBg }]}>
                 <Text style={[styles.statText, { color: t.pillText }]}>
                   Daily {dailyDoneCount}/{dailyTotal}
                 </Text>
               </View>
-              <View
-                style={[
-                  styles.statChip,
-                  { borderColor: t.border, backgroundColor: t.pillBg },
-                ]}
-              >
+              <View style={[styles.statChip, { borderColor: t.border, backgroundColor: t.pillBg }]}>
                 <Text style={[styles.statText, { color: t.pillText }]}>
                   Weekly {weeklyDoneCount}/{todaysWeekly.length}
                 </Text>
               </View>
             </View>
 
+            {/* Progress bar */}
             {dailyTotal > 0 && (
               <View style={[styles.progressBg, { backgroundColor: t.border }]}>
                 <View
@@ -251,7 +269,8 @@ export default function TrackerScreen() {
           </TouchableOpacity>
         </View>
 
-        {showDatePicker && (
+        {/* Native date picker — only rendered on native, never on web */}
+        {showDatePicker && DateTimePicker && (
           <DateTimePicker
             value={date}
             mode="date"
@@ -262,26 +281,11 @@ export default function TrackerScreen() {
       </View>
 
       {/* DAILY */}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: t.cardBg, borderColor: t.border },
-        ]}
-      >
-        <View
-          style={[styles.sectionHeaderRow, { borderBottomColor: t.border }]}
-        >
-          <Text style={[styles.sectionTitle, { color: t.text }]}>
-            Daily Activities
-          </Text>
-          <Text
-            style={[
-              styles.sectionCount,
-              { color: allDone ? "#16a34a" : t.textLight },
-            ]}
-          >
-            {dailyDoneCount}/{dailyTotal}
-            {allDone ? " ✓" : ""}
+      <View style={[styles.card, { backgroundColor: t.cardBg, borderColor: t.border }]}>
+        <View style={[styles.sectionHeaderRow, { borderBottomColor: t.border }]}>
+          <Text style={[styles.sectionTitle, { color: t.text }]}>Daily Activities</Text>
+          <Text style={[styles.sectionCount, { color: allDone ? "#16a34a" : t.textLight }]}>
+            {dailyDoneCount}/{dailyTotal}{allDone ? " ✓" : ""}
           </Text>
         </View>
         {activities.daily.length === 0 && (
@@ -306,15 +310,8 @@ export default function TrackerScreen() {
       </View>
 
       {/* WEEKLY */}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: t.cardBg, borderColor: t.border },
-        ]}
-      >
-        <View
-          style={[styles.sectionHeaderRow, { borderBottomColor: t.border }]}
-        >
+      <View style={[styles.card, { backgroundColor: t.cardBg, borderColor: t.border }]}>
+        <View style={[styles.sectionHeaderRow, { borderBottomColor: t.border }]}>
           <Text style={[styles.sectionTitle, { color: t.text }]}>
             Weekly — {dayName}
           </Text>
@@ -363,71 +360,37 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  cardTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    marginBottom: 14,
-    letterSpacing: -0.5,
-  },
+  cardTitle: { fontSize: 22, fontWeight: "800", marginBottom: 14, letterSpacing: -0.5 },
 
   dateRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   navBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 44, height: 44, borderRadius: 22,
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
   dateCenter: { flex: 1, alignItems: "center", gap: 8 },
   dateDisplay: {
-    width: "100%",
-    borderRadius: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
+    width: "100%", borderRadius: 14,
+    paddingVertical: 11, paddingHorizontal: 14,
+    alignItems: "center", flexDirection: "row",
+    justifyContent: "center", gap: 8,
   },
   dateText: { fontSize: 13, fontWeight: "700" },
   todayDot: { width: 7, height: 7, borderRadius: 4 },
   todayBtn: {
     backgroundColor: "#16a34a",
-    paddingHorizontal: 20,
-    paddingVertical: 7,
-    borderRadius: 999,
+    paddingHorizontal: 20, paddingVertical: 7, borderRadius: 999,
   },
   todayBtnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   statsRow: { flexDirection: "row", gap: 8 },
-  statChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
+  statChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   statText: { fontSize: 11, fontWeight: "600" },
-  progressBg: {
-    height: 6,
-    borderRadius: 999,
-    width: "100%",
-    overflow: "hidden",
-  },
+  progressBg: { height: 6, borderRadius: 999, width: "100%", overflow: "hidden" },
   progressFill: { height: 6, borderRadius: 999 },
-  allDoneText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#16a34a",
-    textAlign: "center",
-  },
+  allDoneText: { fontSize: 13, fontWeight: "700", color: "#16a34a", textAlign: "center" },
 
   sectionHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: 12,
-    marginBottom: 10,
-    borderBottomWidth: 1,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingBottom: 12, marginBottom: 10, borderBottomWidth: 1,
   },
   sectionTitle: { fontSize: 16, fontWeight: "700" },
   sectionCount: { fontSize: 13, fontWeight: "600" },
@@ -435,23 +398,13 @@ const styles = StyleSheet.create({
   emptyWeekly: { alignItems: "center", paddingVertical: 20, gap: 8 },
 
   checkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 14,
-    padding: 13,
-    marginBottom: 7,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-    gap: 12,
+    flexDirection: "row", alignItems: "center",
+    borderRadius: 14, padding: 13, marginBottom: 7,
+    borderWidth: 1, borderLeftWidth: 4, gap: 12,
   },
   checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+    width: 26, height: 26, borderRadius: 8, borderWidth: 2,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
   checkMark: { color: "#fff", fontSize: 14, fontWeight: "900" },
   activityName: { flex: 1, fontSize: 14, fontWeight: "500", lineHeight: 20 },
