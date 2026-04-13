@@ -4,10 +4,10 @@
     "slug": "my-habit-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/images/splash.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#1c022d"
     },
@@ -20,16 +20,31 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1c022d"
       },
-      "package": "com.riyaz.myhabittracker",
+      "package": "com.yourname.myhabittracker",
       "versionCode": 1,
-      "permissions": []
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "USE_EXACT_ALARM"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#7c3aed",
+          "androidMode": "default",
+          "androidCollapsedTitle": "Habit Tracker Reminders"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "a684cbfd-cfeb-456c-be4d-3cd17ad174d8"
