@@ -1,98 +1,95 @@
+// config/AppContext.js
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { DEFAULT_DAILY_NAMES, DEFAULT_WEEKLY_ITEMS } from "./activityConfig";
+import { API_BASE } from "./api";
 import { THEMES, THEME_ORDER } from "./theme";
 
 const AppContext = createContext(null);
 
+const apiFetch = (path) =>
+  fetch(`${API_BASE}${path}`)
+    .then((r) => r.json())
+    .catch(() => null);
+
+const apiPost = (path, body) =>
+  fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+    .then((r) => r.json())
+    .catch(() => null);
+
 export function AppProvider({ children }) {
-  const [activities, setActivities] = useState({ daily: [], weekly: [] });
-  const [history, setHistory] = useState({});
-  const [currentDate, setCurrentDate] = useState(
-    new Date().toLocaleDateString("en-CA"),
-  );
+  const [activities, setActivitiesState] = useState({ daily: [], weekly: [] });
+  const [history, setHistoryState] = useState({});
+  const [customMeta, setCustomMetaState] = useState({});
+  const [currentDate, setCurrentDate] = useState(new Date().toLocaleDateString("en-CA"));
   const [theme, setTheme] = useState("purple");
-  const [customMeta, setCustomMeta] = useState({});
   const [initialized, setInitialized] = useState(false);
+  const apiOk = useRef(false);
 
   // LOAD
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
         const savedTheme = await AsyncStorage.getItem("theme");
-        if (["light", "dark", "purple"].includes(savedTheme))
-          setTheme(savedTheme);
-        else setTheme("purple");
+        if (["light", "dark", "purple"].includes(savedTheme)) setTheme(savedTheme);
 
-        const savedActivities = await AsyncStorage.getItem("activities");
-        if (savedActivities) {
-          const parsed = JSON.parse(savedActivities);
-          if (!parsed.daily) parsed.daily = [];
-          if (!parsed.weekly) parsed.weekly = [];
-          setActivities(parsed);
+        const [apiAct, apiMeta, apiHist] = await Promise.all([apiFetch("/api/activities"), apiFetch("/api/activities/meta"), apiFetch("/api/history")]);
+
+        if (apiAct && !apiAct.error) {
+          apiOk.current = true;
+          setActivitiesState({ daily: apiAct.daily || [], weekly: apiAct.weekly || [] });
+          setCustomMetaState(apiMeta && !apiMeta.error ? apiMeta : {});
+          setHistoryState(apiHist && !apiHist.error ? apiHist : {});
         } else {
-          setActivities({
-            daily: [...DEFAULT_DAILY_NAMES],
-            weekly: [...DEFAULT_WEEKLY_ITEMS],
-          });
+          const [sAct, sHist, sMeta] = await Promise.all([AsyncStorage.getItem("activities"), AsyncStorage.getItem("activity_history"), AsyncStorage.getItem("activity_meta")]);
+          setActivitiesState(sAct ? JSON.parse(sAct) : { daily: [...DEFAULT_DAILY_NAMES], weekly: [...DEFAULT_WEEKLY_ITEMS] });
+          setHistoryState(sHist ? JSON.parse(sHist) : {});
+          setCustomMetaState(sMeta ? JSON.parse(sMeta) : {});
         }
-
-        const savedHistory = await AsyncStorage.getItem("activity_history");
-        setHistory(savedHistory ? JSON.parse(savedHistory) : {});
-
-        const savedMeta = await AsyncStorage.getItem("activity_meta");
-        setCustomMeta(savedMeta ? JSON.parse(savedMeta) : {});
       } catch (e) {
         console.error("Load error", e);
       } finally {
         setInitialized(true);
       }
-    };
-    load();
+    })();
   }, []);
 
-  // SAVE ACTIVITIES
-  useEffect(() => {
-    if (!initialized) return;
-    AsyncStorage.setItem("activities", JSON.stringify(activities)).catch(
-      console.error,
-    );
-  }, [activities, initialized]);
+  const setActivities = async (next) => {
+    const value = typeof next === "function" ? next(activities) : next;
+    setActivitiesState(value);
+    if (apiOk.current) apiPost("/api/activities", value);
+    AsyncStorage.setItem("activities", JSON.stringify(value)).catch(console.error);
+  };
 
-  // SAVE HISTORY
-  useEffect(() => {
-    if (!initialized) return;
-    AsyncStorage.setItem("activity_history", JSON.stringify(history)).catch(
-      console.error,
-    );
-  }, [history, initialized]);
-
-  // SAVE META
-  useEffect(() => {
-    if (!initialized) return;
-    AsyncStorage.setItem("activity_meta", JSON.stringify(customMeta)).catch(
-      console.error,
-    );
-  }, [customMeta, initialized]);
+  const setCustomMeta = async (next) => {
+    const value = typeof next === "function" ? next(customMeta) : next;
+    setCustomMetaState(value);
+    if (apiOk.current) apiPost("/api/activities/meta", value);
+    AsyncStorage.setItem("activity_meta", JSON.stringify(value)).catch(console.error);
+  };
 
   const updateDayStatus = (type, name, value) => {
-    setHistory((prev) => {
+    setHistoryState((prev) => {
       const old = prev[currentDate] || { daily: {}, weekly: {} };
       const updated = { daily: { ...old.daily }, weekly: { ...old.weekly } };
       if (type === "daily") updated.daily[name] = value;
       if (type === "weekly") updated.weekly[name] = value;
-      return { ...prev, [currentDate]: updated };
+      const next = { ...prev, [currentDate]: updated };
+      AsyncStorage.setItem("activity_history", JSON.stringify(next)).catch(console.error);
+      return next;
     });
+    if (apiOk.current) apiPost("/api/history", { date: currentDate, type, name, value });
   };
 
   const toggleTheme = () => {
-    const next =
-      THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
+    const next = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
     setTheme(next);
     AsyncStorage.setItem("theme", next).catch(console.error);
   };
-
-  const themeObj = THEMES[theme] || THEMES.purple;
 
   return (
     <AppContext.Provider
@@ -100,12 +97,12 @@ export function AppProvider({ children }) {
         activities,
         setActivities,
         history,
-        setHistory,
+        setHistory: setHistoryState,
         currentDate,
         setCurrentDate,
         theme,
         toggleTheme,
-        themeObj,
+        themeObj: THEMES[theme] || THEMES.purple,
         customMeta,
         setCustomMeta,
         updateDayStatus,

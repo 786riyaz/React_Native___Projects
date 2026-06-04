@@ -11,25 +11,19 @@
       "resizeMode": "contain",
       "backgroundColor": "#1c022d"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourname.myhabittracker"
+      "bundleIdentifier": "com.riyaz.myhabittracker"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1c022d"
       },
-      "package": "com.yourname.myhabittracker",
-      "versionCode": 1,
-      "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "USE_EXACT_ALARM"
-      ]
+      "package": "com.riyaz.myhabittracker",
+      "versionCode": 2,
+      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE", "USE_EXACT_ALARM"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -50,5 +44,6 @@
         "projectId": "a684cbfd-cfeb-456c-be4d-3cd17ad174d8"
       }
     }
-  }
+  },
+  "name": "main"
 }

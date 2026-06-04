@@ -157,7 +157,6 @@ return Response.json({ error: e.message }, { status: 500 });
 }
 }
 
-
 src/app/api/history/route.js
 import pool from '@/lib/db';
 
@@ -243,8 +242,10 @@ return Response.json({ error: e.message }, { status: 500 });
 }
 }
 
-
 let me know if you want anything from myside.
 and give me compelte fixed code file so i can replace in my react native application to achive this database storage feature.
 and the next js application should not break and the database for both the application will be same so i can do my tracking from mobile and web both.API
 keep your code file concise and crisp at the same time using less tokens so we can talk more and more.
+
+I have also tried to do this but facing many errors, I have given reference below. and the generated APK was not working in the mobile ultimately.
+so please give me complete solutions with implemented feature to generate the APK file.
