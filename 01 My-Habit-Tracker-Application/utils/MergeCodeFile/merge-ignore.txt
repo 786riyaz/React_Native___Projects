@@ -1,0 +1,39 @@
+Development Packages :::
+node_modules
+.git
+.next
+.expo
+dist
+build
+=============================================================
+Documentations :::
+000 Docs
+00_UT
+00_Notes
+000_APK_Files
+README.md
+=============================================================
+Images :::
+public
+storage
+assets
+=============================================================
+Development Files ::
+.gitignore
+.env.local
+package-lock.json
+package.json---INCLUDE
+eslint.config.mjs---INCLUDE
+next-env.d.ts---INCLUDE
+next.config.ts---INCLUDE
+postcss.config.mjs---INCLUDE
+tsconfig.json---INCLUDE
+=============================================================
+Merge Files :::
+utils
+
+*.xlsx
+favicon.ico
+00_Database_Export
+00_Excel_Export
+00_Riyaz_Notes
